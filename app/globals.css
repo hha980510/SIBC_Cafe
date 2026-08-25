@@ -516,6 +516,8 @@ button {
       -apple-system, sans-serif;
     page-break-after: always;
     break-after: page;
+    /* 프린터 물리적 인쇄 위치 보정: 실제 라벨에서 8mm 아래로 밀려 나와서 그만큼 위로 당김 */
+    transform: translateY(-8mm);
   }
   .label:last-child {
     page-break-after: auto;
@@ -553,9 +555,10 @@ button {
     font-style: italic;
     color: #222;
     margin-top: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    line-height: 1.25;
   }
 }
 
