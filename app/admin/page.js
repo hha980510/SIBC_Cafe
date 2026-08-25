@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "sibc_cafe_admin_passcode";
+const PRINTED_KEY = "sibc_cafe_printed_ids";
 
 function formatWon(n) {
   return `${(n || 0).toLocaleString("ko-KR")}원`;
@@ -26,6 +27,21 @@ function summarizeItems(items) {
   return items.map((i) => `${i.name} x${i.qty}`).join(", ");
 }
 
+function loadPrintedIds() {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = sessionStorage.getItem(PRINTED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function savePrintedIds(set) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(PRINTED_KEY, JSON.stringify(Array.from(set)));
+}
+
 export default function AdminPage() {
   const [passcodeInput, setPasscodeInput] = useState("");
   const [passcode, setPasscode] = useState(null);
@@ -34,8 +50,15 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [tab, setTab] = useState("print"); // "print" | "history"
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [printedIds, setPrintedIds] = useState(() => new Set());
+  const [selectedHistoryIds, setSelectedHistoryIds] = useState(() => new Set());
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    setPrintedIds(loadPrintedIds());
     const saved =
       typeof window !== "undefined" ? sessionStorage.getItem(STORAGE_KEY) : null;
     if (saved !== null) {
@@ -65,7 +88,17 @@ export default function AdminPage() {
         return;
       }
 
-      setOrders(data.orders || []);
+      const fetched = data.orders || [];
+      setOrders(fetched);
+
+      // 사라진 주문(초기화 등으로 삭제된) id는 printed 목록에서도 정리
+      const validIds = new Set(fetched.map((o) => o.id));
+      setPrintedIds((prev) => {
+        const next = new Set(Array.from(prev).filter((id) => validIds.has(id)));
+        savePrintedIds(next);
+        return next;
+      });
+
       setAuthorized(true);
       if (typeof window !== "undefined") {
         sessionStorage.setItem(STORAGE_KEY, code ?? "");
@@ -84,7 +117,7 @@ export default function AdminPage() {
   }
 
   async function handleReset() {
-    if (!confirm("모든 주문 내역을 초기화할까요? 영수증을 먼저 출력했는지 확인해주세요.")) {
+    if (!confirm("모든 주문 내역을 초기화할까요? 라벨을 먼저 출력했는지 확인해주세요.")) {
       return;
     }
     setResetting(true);
@@ -99,11 +132,50 @@ export default function AdminPage() {
         return;
       }
       setOrders([]);
+      setPrintedIds(new Set());
+      savePrintedIds(new Set());
+      setSelectedHistoryIds(new Set());
     } catch (err) {
       setError("네트워크 오류로 초기화에 실패했습니다.");
     } finally {
       setResetting(false);
     }
+  }
+
+  function handlePrintLabels(ids) {
+    window.print();
+    setPrintedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      savePrintedIds(next);
+      return next;
+    });
+  }
+
+  function toggleHistorySelect(id) {
+    setSelectedHistoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function handleRequeueSelected() {
+    if (selectedHistoryIds.size === 0) return;
+    setPrintedIds((prev) => {
+      const next = new Set(prev);
+      selectedHistoryIds.forEach((id) => next.delete(id));
+      savePrintedIds(next);
+      return next;
+    });
+    const count = selectedHistoryIds.size;
+    setSelectedHistoryIds(new Set());
+    setNotice(`${count}건을 라벨 출력 대기 목록으로 올렸어요.`);
+    setTab("print");
   }
 
   if (!authorized) {
@@ -132,95 +204,239 @@ export default function AdminPage() {
     );
   }
 
-  const totalCups = (orders || []).reduce(
+  // 라벨 출력 탭: 아직 출력 처리되지 않은(=대기 중인) 주문만
+  const pendingOrders = (orders || []).filter((o) => !printedIds.has(o.id));
+
+  const totalCups = pendingOrders.reduce(
     (sum, o) => sum + o.items.reduce((s, i) => s + i.qty, 0),
     0
   );
-  const totalAmount = (orders || []).reduce((sum, o) => sum + o.total, 0);
+  const totalAmount = pendingOrders.reduce((sum, o) => sum + o.total, 0);
 
   const tally = {};
-  (orders || []).forEach((o) => {
+  pendingOrders.forEach((o) => {
     o.items.forEach((i) => {
       tally[i.name] = (tally[i.name] || 0) + i.qty;
     });
   });
 
+  // 전체 내역 탭: 기간(시작일~종료일) 필터링, printed 여부와 무관하게 전부 표시
+  const filteredOrders = (orders || []).filter((o) => {
+    if (!dateFrom && !dateTo) return true;
+    const t = new Date(o.createdAt).getTime();
+    if (dateFrom) {
+      const fromTime = new Date(`${dateFrom}T00:00:00`).getTime();
+      if (t < fromTime) return false;
+    }
+    if (dateTo) {
+      const toTime = new Date(`${dateTo}T23:59:59`).getTime();
+      if (t > toTime) return false;
+    }
+    return true;
+  });
+  const filteredCups = filteredOrders.reduce(
+    (sum, o) => sum + o.items.reduce((s, i) => s + i.qty, 0),
+    0
+  );
+  const filteredTotal = filteredOrders.reduce((sum, o) => sum + o.total, 0);
+
   return (
     <main className="admin-page">
-      <div className="admin-header">
-        <h1>주문 관리</h1>
-        <div className="admin-actions">
-          <button className="btn-secondary" onClick={() => fetchOrders(passcode)} disabled={loading}>
-            {loading ? "불러오는 중..." : "새로고침"}
-          </button>
-          <button className="btn-secondary" onClick={() => window.print()} disabled={!orders || orders.length === 0}>
+      <div className="admin-shell">
+        <aside className="admin-sidebar">
+          <button
+            type="button"
+            className={`sidebar-tab ${tab === "print" ? "active" : ""}`}
+            onClick={() => setTab("print")}
+          >
             라벨 출력
           </button>
-          <button className="btn-danger" onClick={handleReset} disabled={resetting || !orders || orders.length === 0}>
-            {resetting ? "초기화 중..." : "초기화"}
+          <button
+            type="button"
+            className={`sidebar-tab ${tab === "history" ? "active" : ""}`}
+            onClick={() => setTab("history")}
+          >
+            전체 내역
           </button>
-        </div>
-      </div>
+        </aside>
 
-      {error && <div className="banner error" style={{ margin: "0 0 16px" }}>{error}</div>}
-
-      <div className="summary-row">
-        <div className="summary-chip">
-          <div className="chip-label">총 주문 건수</div>
-          <div className="chip-value">{(orders || []).length}건</div>
-        </div>
-        <div className="summary-chip">
-          <div className="chip-label">총 잔 수</div>
-          <div className="chip-value">{totalCups}잔</div>
-        </div>
-        <div className="summary-chip">
-          <div className="chip-label">총 금액</div>
-          <div className="chip-value">{formatWon(totalAmount)}</div>
-        </div>
-      </div>
-
-      {Object.keys(tally).length > 0 && (
-        <div className="menu-tally">
-          <h2>메뉴별 집계</h2>
-          {Object.entries(tally).map(([name, qty]) => (
-            <div className="tally-row" key={name}>
-              <span>{name}</span>
-              <span>{qty}잔</span>
+        <div className="admin-content">
+          {error && (
+            <div className="banner error" style={{ margin: "0 0 16px" }}>
+              {error}
             </div>
-          ))}
+          )}
+          {notice && (
+            <div className="banner success" style={{ margin: "0 0 16px" }}>
+              {notice}
+            </div>
+          )}
+
+          {tab === "print" ? (
+            <>
+              <div className="admin-header">
+                <h1>라벨 출력</h1>
+                <div className="admin-actions">
+                  <button className="btn-secondary" onClick={() => fetchOrders(passcode)} disabled={loading}>
+                    {loading ? "불러오는 중..." : "새로고침"}
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => handlePrintLabels(pendingOrders.map((o) => o.id))}
+                    disabled={pendingOrders.length === 0}
+                  >
+                    라벨 출력
+                  </button>
+                  <button
+                    className="btn-danger"
+                    onClick={handleReset}
+                    disabled={resetting || !orders || orders.length === 0}
+                  >
+                    {resetting ? "초기화 중..." : "초기화"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="summary-row">
+                <div className="summary-chip">
+                  <div className="chip-label">대기 중인 주문</div>
+                  <div className="chip-value">{pendingOrders.length}건</div>
+                </div>
+                <div className="summary-chip">
+                  <div className="chip-label">총 잔 수</div>
+                  <div className="chip-value">{totalCups}잔</div>
+                </div>
+                <div className="summary-chip">
+                  <div className="chip-label">총 금액</div>
+                  <div className="chip-value">{formatWon(totalAmount)}</div>
+                </div>
+              </div>
+
+              {Object.keys(tally).length > 0 && (
+                <div className="menu-tally">
+                  <h2>메뉴별 집계</h2>
+                  {Object.entries(tally).map(([name, qty]) => (
+                    <div className="tally-row" key={name}>
+                      <span>{name}</span>
+                      <span>{qty}잔</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {pendingOrders.length === 0 ? (
+                <div className="banner info">
+                  라벨 출력 대기 중인 주문이 없습니다. (전체 내역 탭에서 다시 올릴 수 있어요)
+                </div>
+              ) : (
+                <div className="banner info">
+                  현재 {pendingOrders.length}건 대기 중 — "라벨 출력"을 누르면 라벨이 인쇄돼요.
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="admin-header">
+                <h1>전체 내역</h1>
+                <div className="date-range">
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    aria-label="시작일"
+                  />
+                  <span className="date-range-sep">~</span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    aria-label="종료일"
+                  />
+                  {(dateFrom || dateTo) && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => {
+                        setDateFrom("");
+                        setDateTo("");
+                      }}
+                    >
+                      기간 초기화
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="history-actions">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ flex: "none" }}
+                  onClick={handleRequeueSelected}
+                  disabled={selectedHistoryIds.size === 0}
+                >
+                  선택 {selectedHistoryIds.size}건 라벨 출력탭으로 올리기
+                </button>
+              </div>
+
+              {filteredOrders.length === 0 ? (
+                <div className="banner info">해당 기간에 주문 내역이 없습니다.</div>
+              ) : (
+                <table className="order-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 32 }}></th>
+                      <th>이름</th>
+                      <th>메뉴</th>
+                      <th>요청사항</th>
+                      <th>금액</th>
+                      <th>일시</th>
+                      <th>상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map((o) => (
+                      <tr key={o.id}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedHistoryIds.has(o.id)}
+                            onChange={() => toggleHistorySelect(o.id)}
+                            aria-label={`${o.customerName} 선택`}
+                          />
+                        </td>
+                        <td>{o.customerName}</td>
+                        <td>{summarizeItems(o.items)}</td>
+                        <td>{o.note || "-"}</td>
+                        <td>{formatWon(o.total)}</td>
+                        <td>{formatTime(o.createdAt)}</td>
+                        <td>
+                          {printedIds.has(o.id) ? (
+                            <span className="status-pill done">출력완료</span>
+                          ) : (
+                            <span className="status-pill pending">대기중</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              <div className="history-total">
+                <span>
+                  총 {filteredOrders.length}건 · {filteredCups}잔
+                </span>
+                <span className="history-total-amount">{formatWon(filteredTotal)}</span>
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
-      {!orders || orders.length === 0 ? (
-        <div className="banner info">아직 접수된 주문이 없습니다.</div>
-      ) : (
-        <table className="order-table">
-          <thead>
-            <tr>
-              <th>이름</th>
-              <th>메뉴</th>
-              <th>요청사항</th>
-              <th>금액</th>
-              <th>시간</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((o) => (
-              <tr key={o.id}>
-                <td>{o.customerName}</td>
-                <td>{summarizeItems(o.items)}</td>
-                <td>{o.note || "-"}</td>
-                <td>{formatWon(o.total)}</td>
-                <td>{formatTime(o.createdAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* 인쇄 시에만 보이는 라벨 뷰: 주문 1건 = 라벨 1장(2 x 1인치) */}
+      {/* 인쇄 시에만 보이는 라벨 뷰: 대기 중인 주문 1건 = 라벨 1장(2.4 x 1.3인치) */}
       <div className="receipt">
-        {(orders || []).map((o, idx) => (
+        {pendingOrders.map((o, idx) => (
           <div className="label" key={o.id}>
             <div className="label-top">
               <span className="label-name">{o.customerName}</span>
