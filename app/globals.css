@@ -555,9 +555,14 @@ button {
     font-style: italic;
     color: #222;
     margin-top: 3px;
-    white-space: nowrap;
+    line-height: 1.25;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    /* 최대 2줄까지만 줄바꿈, 그래도 넘치면 그때만 ...로 자름 (라벨 높이를 넘지 않게) */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 }
 
