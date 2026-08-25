@@ -154,7 +154,7 @@ export default function AdminPage() {
             {loading ? "불러오는 중..." : "새로고침"}
           </button>
           <button className="btn-secondary" onClick={() => window.print()} disabled={!orders || orders.length === 0}>
-            영수증 출력
+            라벨 출력
           </button>
           <button className="btn-danger" onClick={handleReset} disabled={resetting || !orders || orders.length === 0}>
             {resetting ? "초기화 중..." : "초기화"}
@@ -218,54 +218,24 @@ export default function AdminPage() {
         </table>
       )}
 
-      {/* 인쇄 시에만 보이는 영수증 뷰 */}
+      {/* 인쇄 시에만 보이는 라벨 뷰: 주문 1건 = 라벨 1장(2 x 1인치) */}
       <div className="receipt">
-        <h2>SIBC CAFE</h2>
-        <p style={{ textAlign: "center" }}>주문 영수증 · {new Date().toLocaleString("ko-KR")}</p>
         {(orders || []).map((o, idx) => (
-          <div className="receipt-order" key={o.id}>
-            <div>
-              #{idx + 1} {o.customerName} ({formatTime(o.createdAt)})
+          <div className="label" key={o.id}>
+            <div className="label-top">
+              <span className="label-name">{o.customerName}</span>
+              <span className="label-num">#{idx + 1}</span>
             </div>
-            <table>
-              <tbody>
-                {o.items.map((i) => (
-                  <tr key={i.id}>
-                    <td>{i.name} x{i.qty}</td>
-                    <td style={{ textAlign: "right" }}>{formatWon(i.price * i.qty)}</td>
-                  </tr>
-                ))}
-                {o.note && (
-                  <tr>
-                    <td colSpan={2}>메모: {o.note}</td>
-                  </tr>
-                )}
-                <tr>
-                  <td>
-                    <strong>소계</strong>
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    <strong>{formatWon(o.total)}</strong>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="label-items">
+              {o.items.map((i) => (
+                <div key={i.id}>
+                  {i.name} x{i.qty}
+                </div>
+              ))}
+            </div>
+            {o.note && <div className="label-note">메모: {o.note}</div>}
           </div>
         ))}
-        <div className="receipt-order" style={{ borderTop: "2px solid #000" }}>
-          <table>
-            <tbody>
-              <tr>
-                <td>
-                  <strong>총 {totalCups}잔 / 총 {(orders || []).length}건</strong>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <strong>{formatWon(totalAmount)}</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </div>
     </main>
   );
