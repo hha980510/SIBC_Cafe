@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { CATEGORIES } from "@/lib/menu";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MaimLogo from "@/components/MaimLogo";
 import { MenuIcon, ExtraIcon } from "@/components/MenuIcon";
 
 // 가격은 사용자 주문 화면/인쇄 라벨에는 표시하지 않고 관리자 "전체 내역" 탭에서만 보여줍니다.
+// 메뉴 자체는 관리자 "메뉴 관리" 화면에서 언제든 바뀔 수 있어서, 고정된 목록을 쓰지 않고
+// 화면이 열릴 때마다 서버(/api/menu)에서 최신 메뉴를 받아옵니다.
 
 // 카테고리별 대표 이모지가 없을 때 쓰는 기본값
 const DEFAULT_EMOJI = "☕️";
@@ -15,19 +16,34 @@ function cartKey(item, categoryHasTemp, temp) {
 }
 
 export default function OrderPage() {
-  const [activeTab, setActiveTab] = useState(CATEGORIES[0].id);
+  const [categories, setCategories] = useState(null); // null = 아직 로딩 중
+  const [menuError, setMenuError] = useState("");
+  const [activeTab, setActiveTab] = useState(null);
   const [cart, setCart] = useState({}); // { [cartKey]: {key, itemId, nameKo, nameEn, price, qty, temp, isExtra} }
   const [tempChoice, setTempChoice] = useState({}); // { [itemId]: "HOT" | "ICE" }
   const [customerName, setCustomerName] = useState("");
-  const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null); // { type: "success" | "error", text }
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
 
+  useEffect(() => {
+    fetch("/api/menu", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        const cats = data.categories || [];
+        setCategories(cats);
+        setActiveTab((prev) => prev || cats[0]?.id || null);
+      })
+      .catch(() => {
+        setCategories([]);
+        setMenuError("메뉴를 불러오지 못했어요. 잠시 후 새로고침 해주세요.");
+      });
+  }, []);
+
   const activeCategory = useMemo(
-    () => CATEGORIES.find((c) => c.id === activeTab) || CATEGORIES[0],
-    [activeTab]
+    () => (categories || []).find((c) => c.id === activeTab) || (categories || [])[0],
+    [categories, activeTab]
   );
 
   const cartEntries = useMemo(
@@ -35,9 +51,13 @@ export default function OrderPage() {
     [cart]
   );
 
+  // 음료(잔 수로 세는 것)와 추가요청(라벨 하단 메모로 들어가는 것)을 구분합니다.
+  const drinkEntries = useMemo(() => cartEntries.filter((e) => !e.isExtra), [cartEntries]);
+  const extraEntries = useMemo(() => cartEntries.filter((e) => e.isExtra), [cartEntries]);
+
   const totalCups = useMemo(
-    () => cartEntries.reduce((sum, e) => sum + e.qty, 0),
-    [cartEntries]
+    () => drinkEntries.reduce((sum, e) => sum + e.qty, 0),
+    [drinkEntries]
   );
 
   function showToast(text) {
@@ -124,18 +144,21 @@ export default function OrderPage() {
       setMessage({ type: "error", text: "이름을 입력해주세요." });
       return;
     }
-    if (cartEntries.length === 0) {
+    if (drinkEntries.length === 0) {
       setMessage({ type: "error", text: "메뉴를 한 개 이상 선택해주세요." });
       return;
     }
 
-    const items = cartEntries.map((e) => ({
+    const items = drinkEntries.map((e) => ({
       id: e.itemId,
       name: e.nameKo,
       price: e.price,
       qty: e.qty,
       temp: e.temp || null,
     }));
+
+    // 추가요청 칩으로 고른 항목들을 라벨 하단에 찍힐 요청사항 메모로 합칩니다.
+    const note = extraEntries.map((e) => e.nameKo).join(", ");
 
     setSubmitting(true);
     try {
@@ -160,12 +183,25 @@ export default function OrderPage() {
         text: `${customerName}님, 주문이 접수되었어요! (총 ${totalCups}개)`,
       });
       setCart({});
-      setNote("");
     } catch (err) {
       setMessage({ type: "error", text: "네트워크 오류로 주문에 실패했습니다. 다시 시도해주세요." });
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (!categories || categories.length === 0) {
+    return (
+      <main className="page">
+        <div className="hero">
+          <MaimLogo size={92} className="hero-logo" />
+          <h1>MAIM CAFE</h1>
+        </div>
+        <div className="banner info" style={{ margin: "20px" }}>
+          {menuError || (categories ? "메뉴가 비어 있습니다." : "메뉴를 불러오는 중...")}
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -185,7 +221,7 @@ export default function OrderPage() {
       <form onSubmit={handleSubmit}>
         <div className="section" style={{ paddingLeft: 0, paddingRight: 0 }}>
           <div className="tab-bar">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
                 type="button"
                 key={c.id}
@@ -207,7 +243,9 @@ export default function OrderPage() {
           </div>
 
           {activeCategory.isExtra ? (
-            <div className="extra-chip-list">
+            <>
+              <p className="extra-hint">선택한 항목은 별도 라벨 없이, 음료 라벨 하단에 요청사항으로 함께 표시돼요.</p>
+              <div className="extra-chip-list">
               {activeCategory.items.map((item) => {
                 const selected = isExtraSelected(item);
                 const disabled = item.available === false;
@@ -229,7 +267,8 @@ export default function OrderPage() {
                   </button>
                 );
               })}
-            </div>
+              </div>
+            </>
           ) : (
             <div className="menu-list">
               {activeCategory.items.map((item) => {
@@ -342,17 +381,6 @@ export default function OrderPage() {
                 maxLength={30}
               />
             </div>
-            <div className="field">
-              <label htmlFor="note">요청사항 (선택, 자유입력)</label>
-              <textarea
-                id="note"
-                rows={2}
-                placeholder="예: 얼음 적게, 달지 않게 등"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                maxLength={100}
-              />
-            </div>
           </div>
         </div>
 
@@ -368,7 +396,7 @@ export default function OrderPage() {
             <button
               type="submit"
               className="btn-primary"
-              disabled={submitting || cartEntries.length === 0}
+              disabled={submitting || drinkEntries.length === 0}
             >
               {submitting ? "주문 접수 중..." : "주문하기"}
             </button>

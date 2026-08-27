@@ -2,9 +2,17 @@
 
 import { useEffect, useState } from "react";
 import MaimLogo from "@/components/MaimLogo";
+import MenuManager from "@/components/MenuManager";
+import { CATEGORIES } from "@/lib/menu";
 
 const STORAGE_KEY = "sibc_cafe_admin_passcode";
 const PRINTED_KEY = "sibc_cafe_printed_ids";
+
+// 추가요청 항목은 더 이상 별도 라벨/잔으로 세지 않고 주문의 요청사항(note)으로 들어갑니다.
+// 예전에 저장된 주문이 여전히 items에 추가요청을 포함하고 있을 수 있어 방어적으로 걸러냅니다.
+const EXTRA_ITEM_IDS = new Set(
+  (CATEGORIES.find((c) => c.isExtra)?.items || []).map((i) => i.id)
+);
 
 // price/total은 센트(USD) 단위 정수로 저장되어 있습니다. (예: 300 = $3.00)
 function formatUSD(cents) {
@@ -56,7 +64,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resetting, setResetting] = useState(false);
-  const [tab, setTab] = useState("print"); // "print" | "history"
+  const [deletingIds, setDeletingIds] = useState(() => new Set());
+  const [tab, setTab] = useState("print"); // "print" | "history" | "menu"
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [printedIds, setPrintedIds] = useState(() => new Set());
@@ -184,6 +193,50 @@ export default function AdminPage() {
     setTab("print");
   }
 
+  async function handleDeleteOrders(ids) {
+    if (ids.length === 0) return;
+    const confirmText =
+      ids.length === 1
+        ? "이 주문 내역을 삭제할까요? 되돌릴 수 없습니다."
+        : `선택한 ${ids.length}건을 삭제할까요? 되돌릴 수 없습니다.`;
+    if (!confirm(confirmText)) return;
+
+    setDeletingIds((prev) => new Set([...Array.from(prev), ...ids]));
+    try {
+      const res = await fetch("/api/orders", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-passcode": passcode ?? "",
+        },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "삭제에 실패했습니다.");
+        return;
+      }
+
+      const idSet = new Set(ids);
+      setOrders((prev) => (prev || []).filter((o) => !idSet.has(o.id)));
+      setPrintedIds((prev) => {
+        const next = new Set(Array.from(prev).filter((id) => !idSet.has(id)));
+        savePrintedIds(next);
+        return next;
+      });
+      setSelectedHistoryIds((prev) => new Set(Array.from(prev).filter((id) => !idSet.has(id))));
+      setNotice(`${ids.length}건을 삭제했어요.`);
+    } catch (err) {
+      setError("네트워크 오류로 삭제에 실패했습니다.");
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+  }
+
   if (!authorized) {
     return (
       <main className="admin-page">
@@ -284,6 +337,13 @@ export default function AdminPage() {
           >
             전체 내역
           </button>
+          <button
+            type="button"
+            className={`sidebar-tab ${tab === "menu" ? "active" : ""}`}
+            onClick={() => setTab("menu")}
+          >
+            메뉴 관리
+          </button>
         </aside>
 
         <div className="admin-content">
@@ -381,7 +441,7 @@ export default function AdminPage() {
                 </>
               )}
             </>
-          ) : (
+          ) : tab === "history" ? (
             <>
               <div className="admin-header">
                 <h1>전체 내역</h1>
@@ -417,6 +477,15 @@ export default function AdminPage() {
               <div className="history-actions">
                 <button
                   type="button"
+                  className="btn-danger"
+                  style={{ flex: "none" }}
+                  onClick={() => handleDeleteOrders(Array.from(selectedHistoryIds))}
+                  disabled={selectedHistoryIds.size === 0}
+                >
+                  선택 {selectedHistoryIds.size}건 삭제
+                </button>
+                <button
+                  type="button"
                   className="btn-primary"
                   style={{ flex: "none" }}
                   onClick={handleRequeueSelected}
@@ -439,6 +508,7 @@ export default function AdminPage() {
                       <th>금액</th>
                       <th>일시</th>
                       <th>상태</th>
+                      <th style={{ width: 60 }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -464,6 +534,17 @@ export default function AdminPage() {
                             <span className="status-pill pending">대기중</span>
                           )}
                         </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-danger btn-danger-sm"
+                            onClick={() => handleDeleteOrders([o.id])}
+                            disabled={deletingIds.has(o.id)}
+                            aria-label={`${o.customerName} 주문 삭제`}
+                          >
+                            삭제
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -477,6 +558,8 @@ export default function AdminPage() {
                 <span className="history-total-amount">{formatUSD(filteredTotal)}</span>
               </div>
             </>
+          ) : (
+            <MenuManager passcode={passcode} />
           )}
         </div>
       </div>

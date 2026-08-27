@@ -323,6 +323,12 @@ button {
 }
 
 /* ---------- 추가요청 칩 ---------- */
+.extra-hint {
+  font-size: 12px;
+  color: var(--sibc-muted);
+  margin: -4px 0 10px;
+}
+
 .extra-chip-list {
   display: flex;
   flex-wrap: wrap;
@@ -526,6 +532,16 @@ button {
   cursor: pointer;
 }
 
+.btn-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-danger-sm {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
 /* ---------- 안내 배너 / 메시지 ---------- */
 .banner {
   margin: 16px 20px 0;
@@ -628,6 +644,7 @@ button {
 .history-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
@@ -786,6 +803,86 @@ button {
 
 .tally-row:last-child {
   border-bottom: none;
+}
+
+/* ---------- 메뉴 관리 ---------- */
+.menu-manage-card {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.menu-manage-card h2 {
+  font-size: 14px;
+  margin: 0 0 10px;
+  color: var(--sibc-green-dark);
+}
+
+.menu-manage-card .order-table input {
+  width: 100%;
+  border: 1.5px solid #e3ddcf;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--sibc-cream);
+  color: var(--sibc-text);
+}
+
+.menu-manage-card .order-table input:focus {
+  outline: none;
+  border-color: var(--sibc-green);
+}
+
+.menu-manage-card .order-table input[type="number"] {
+  width: 90px;
+}
+
+.menu-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--sibc-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menu-toggle input {
+  width: auto !important;
+}
+
+.menu-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e3ddcf;
+}
+
+.menu-add-row input {
+  flex: 1;
+  min-width: 100px;
+  border: 1.5px solid #e3ddcf;
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--sibc-cream);
+  color: var(--sibc-text);
+}
+
+.menu-add-row input:focus {
+  outline: none;
+  border-color: var(--sibc-green);
+}
+
+.menu-add-row input[type="number"] {
+  max-width: 100px;
 }
 
 .passcode-gate {
