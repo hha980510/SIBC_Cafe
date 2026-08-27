@@ -33,8 +33,15 @@ function formatTime(iso) {
   }
 }
 
+// 추가요청 항목인지 판단합니다. 새 주문은 isExtra 플래그로, 그 플래그가 없던
+// 예전 주문은 메뉴 id가 추가요청 카테고리 id 목록에 있는지로 방어적으로 판단합니다.
+function isExtraItem(i) {
+  return Boolean(i.isExtra) || EXTRA_ITEM_IDS.has(i.id);
+}
+
 function itemLabel(i) {
-  return i.temp ? `${i.name}(${i.temp}) x${i.qty}` : `${i.name} x${i.qty}`;
+  const name = i.temp ? `${i.name}(${i.temp})` : i.name;
+  return isExtraItem(i) ? `+${name}` : `${name} x${i.qty}`;
 }
 
 function summarizeItems(items) {
@@ -203,13 +210,11 @@ export default function AdminPage() {
 
     setDeletingIds((prev) => new Set([...Array.from(prev), ...ids]));
     try {
-      const res = await fetch("/api/orders", {
+      // DELETE 요청 body는 일부 환경에서 누락될 수 있어, 지울 id는 쿼리스트링으로 보냅니다.
+      const query = new URLSearchParams({ ids: ids.join(",") }).toString();
+      const res = await fetch(`/api/orders?${query}`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-passcode": passcode ?? "",
-        },
-        body: JSON.stringify({ ids }),
+        headers: { "x-admin-passcode": passcode ?? "" },
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -268,24 +273,27 @@ export default function AdminPage() {
   const pendingOrders = (orders || []).filter((o) => !printedIds.has(o.id));
 
   const totalCups = pendingOrders.reduce(
-    (sum, o) => sum + o.items.reduce((s, i) => s + i.qty, 0),
+    (sum, o) => sum + o.items.filter((i) => !isExtraItem(i)).reduce((s, i) => s + i.qty, 0),
     0
   );
 
   const tally = {};
   pendingOrders.forEach((o) => {
     o.items.forEach((i) => {
+      if (isExtraItem(i)) return;
       const label = i.temp ? `${i.name}(${i.temp})` : i.name;
       tally[label] = (tally[label] || 0) + i.qty;
     });
   });
 
   // 라벨 1장 = 음료 1잔. 한 주문에 여러 잔이 담겨 있으면 잔 수만큼 라벨을 각각 만듭니다.
+  // 추가요청 항목은 별도 라벨을 만들지 않고 주문의 note로만 표시됩니다.
   const labelSlips = [];
   pendingOrders.forEach((o) => {
-    const cupsInOrder = o.items.reduce((s, i) => s + i.qty, 0);
+    const drinkItems = o.items.filter((i) => !isExtraItem(i));
+    const cupsInOrder = drinkItems.reduce((s, i) => s + i.qty, 0);
     let cupIndex = 0;
-    o.items.forEach((i) => {
+    drinkItems.forEach((i) => {
       for (let n = 0; n < i.qty; n++) {
         cupIndex += 1;
         labelSlips.push({

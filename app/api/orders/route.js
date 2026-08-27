@@ -54,6 +54,7 @@ export async function POST(request) {
         price: Number(item.price) || 0,
         qty: Number(item.qty) || 0,
         temp: item.temp === "HOT" || item.temp === "ICE" ? item.temp : null,
+        isExtra: Boolean(item.isExtra),
       }))
       .filter((item) => item.id && item.qty > 0);
 
@@ -84,17 +85,41 @@ export async function POST(request) {
   }
 }
 
-// 관리자가 영수증을 뽑은 뒤 다음 주문 모음을 위해 목록을 초기화할 때 사용합니다.
+// 관리자가 주문을 지울 때 사용합니다.
+// 쿼리스트링 ?ids=id1,id2 가 있으면 해당 주문만 골라서 삭제하고,
+// ids가 없으면 (기존 "초기화" 동작과 동일하게) 전체를 삭제합니다.
+// (DELETE 요청의 body는 일부 배포 환경/프록시에서 누락되는 경우가 있어
+//  body 대신 쿼리스트링으로 대상 id를 전달받도록 했습니다.)
 export async function DELETE(request) {
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: "비밀번호가 올바르지 않습니다." }, { status: 401 });
   }
 
   try {
+    const url = new URL(request.url);
+    const idsParam = url.searchParams.get("ids") || "";
+    const ids = idsParam
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    if (ids.length === 0) {
+      await redis.del(ORDERS_KEY);
+      return NextResponse.json({ ok: true, deletedAll: true });
+    }
+
+    const idSet = new Set(ids);
+    const raw = await redis.lrange(ORDERS_KEY, 0, -1);
+    const remaining = raw.map(parseOrder).filter(Boolean).filter((o) => !idSet.has(o.id));
+
     await redis.del(ORDERS_KEY);
-    return NextResponse.json({ ok: true });
+    if (remaining.length > 0) {
+      await redis.rpush(ORDERS_KEY, ...remaining);
+    }
+
+    return NextResponse.json({ ok: true, deletedIds: ids });
   } catch (err) {
     console.error("[DELETE /api/orders]", err);
-    return NextResponse.json({ error: "초기화에 실패했습니다." }, { status: 500 });
+    return NextResponse.json({ error: "삭제에 실패했습니다." }, { status: 500 });
   }
 }

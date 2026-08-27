@@ -149,12 +149,15 @@ export default function OrderPage() {
       return;
     }
 
-    const items = drinkEntries.map((e) => ({
+    // 추가요청도 items에 함께 담아 보내야 가격이 주문 총액에 반영됩니다.
+    // (라벨에는 별도로 찍히지 않고, 아래 note로 한 번 더 모아 라벨 하단 메모로도 보냅니다.)
+    const items = [...drinkEntries, ...extraEntries].map((e) => ({
       id: e.itemId,
       name: e.nameKo,
       price: e.price,
       qty: e.qty,
       temp: e.temp || null,
+      isExtra: e.isExtra,
     }));
 
     // 추가요청 칩으로 고른 항목들을 라벨 하단에 찍힐 요청사항 메모로 합칩니다.
