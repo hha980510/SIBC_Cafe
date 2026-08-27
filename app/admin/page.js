@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 const STORAGE_KEY = "sibc_cafe_admin_passcode";
 const PRINTED_KEY = "sibc_cafe_printed_ids";
 
-function formatWon(n) {
-  return `${(n || 0).toLocaleString("ko-KR")}원`;
+// price/total은 센트(USD) 단위 정수로 저장되어 있습니다. (예: 300 = $3.00)
+function formatUSD(cents) {
+  return `$${((cents || 0) / 100).toFixed(2)}`;
 }
 
 function formatTime(iso) {
@@ -23,8 +24,12 @@ function formatTime(iso) {
   }
 }
 
+function itemLabel(i) {
+  return i.temp ? `${i.name}(${i.temp}) x${i.qty}` : `${i.name} x${i.qty}`;
+}
+
 function summarizeItems(items) {
-  return items.map((i) => `${i.name} x${i.qty}`).join(", ");
+  return items.map(itemLabel).join(", ");
 }
 
 function loadPrintedIds() {
@@ -211,12 +216,12 @@ export default function AdminPage() {
     (sum, o) => sum + o.items.reduce((s, i) => s + i.qty, 0),
     0
   );
-  const totalAmount = pendingOrders.reduce((sum, o) => sum + o.total, 0);
 
   const tally = {};
   pendingOrders.forEach((o) => {
     o.items.forEach((i) => {
-      tally[i.name] = (tally[i.name] || 0) + i.qty;
+      const label = i.temp ? `${i.name}(${i.temp})` : i.name;
+      tally[label] = (tally[label] || 0) + i.qty;
     });
   });
 
@@ -305,10 +310,6 @@ export default function AdminPage() {
                 <div className="summary-chip">
                   <div className="chip-label">총 잔 수</div>
                   <div className="chip-value">{totalCups}잔</div>
-                </div>
-                <div className="summary-chip">
-                  <div className="chip-label">총 금액</div>
-                  <div className="chip-value">{formatWon(totalAmount)}</div>
                 </div>
               </div>
 
@@ -408,7 +409,7 @@ export default function AdminPage() {
                         <td>{o.customerName}</td>
                         <td>{summarizeItems(o.items)}</td>
                         <td>{o.note || "-"}</td>
-                        <td>{formatWon(o.total)}</td>
+                        <td>{formatUSD(o.total)}</td>
                         <td>{formatTime(o.createdAt)}</td>
                         <td>
                           {printedIds.has(o.id) ? (
@@ -427,7 +428,7 @@ export default function AdminPage() {
                 <span>
                   총 {filteredOrders.length}건 · {filteredCups}잔
                 </span>
-                <span className="history-total-amount">{formatWon(filteredTotal)}</span>
+                <span className="history-total-amount">{formatUSD(filteredTotal)}</span>
               </div>
             </>
           )}
@@ -444,9 +445,7 @@ export default function AdminPage() {
             </div>
             <div className="label-items">
               {o.items.map((i) => (
-                <div key={i.id}>
-                  {i.name} x{i.qty}
-                </div>
+                <div key={`${i.id}-${i.temp || "na"}`}>{itemLabel(i)}</div>
               ))}
             </div>
             {o.note && <div className="label-note">메모: {o.note}</div>}

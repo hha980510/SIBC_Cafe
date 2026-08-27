@@ -53,6 +53,7 @@ export async function POST(request) {
         name: String(item.name || ""),
         price: Number(item.price) || 0,
         qty: Number(item.qty) || 0,
+        temp: item.temp === "HOT" || item.temp === "ICE" ? item.temp : null,
       }))
       .filter((item) => item.id && item.qty > 0);
 
