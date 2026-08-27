@@ -227,6 +227,25 @@ export default function AdminPage() {
     });
   });
 
+  // 라벨 1장 = 음료 1잔. 한 주문에 여러 잔이 담겨 있으면 잔 수만큼 라벨을 각각 만듭니다.
+  const labelSlips = [];
+  pendingOrders.forEach((o) => {
+    const cupsInOrder = o.items.reduce((s, i) => s + i.qty, 0);
+    let cupIndex = 0;
+    o.items.forEach((i) => {
+      for (let n = 0; n < i.qty; n++) {
+        cupIndex += 1;
+        labelSlips.push({
+          key: `${o.id}-${i.id}-${i.temp || "na"}-${n}`,
+          order: o,
+          item: i,
+          cupIndex,
+          cupsInOrder,
+        });
+      }
+    });
+  });
+
   // 전체 내역 탭: 기간(시작일~종료일) 필터링, printed 여부와 무관하게 전부 표시
   const filteredOrders = (orders || []).filter((o) => {
     if (!dateFrom && !dateTo) return true;
@@ -332,9 +351,34 @@ export default function AdminPage() {
                   라벨 출력 대기 중인 주문이 없습니다. (전체 내역 탭에서 다시 올릴 수 있어요)
                 </div>
               ) : (
-                <div className="banner info">
-                  현재 {pendingOrders.length}건 대기 중 — "라벨 출력"을 누르면 라벨이 인쇄돼요.
-                </div>
+                <>
+                  <div className="banner info">
+                    현재 {pendingOrders.length}건 대기 중 — "라벨 출력"을 누르면 라벨이 인쇄돼요.
+                  </div>
+                  <table className="order-table" style={{ marginTop: 14 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: 40 }}>#</th>
+                        <th>이름</th>
+                        <th>메뉴</th>
+                        <th>주문일시</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {labelSlips.map((slip, idx) => (
+                        <tr key={slip.key}>
+                          <td>{idx + 1}</td>
+                          <td>
+                            {slip.order.customerName}
+                            {slip.cupsInOrder > 1 ? ` (${slip.cupIndex}/${slip.cupsInOrder})` : ""}
+                          </td>
+                          <td>{slip.item.temp ? `${slip.item.name}(${slip.item.temp})` : slip.item.name}</td>
+                          <td>{formatTime(slip.order.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
               )}
             </>
           ) : (
@@ -437,20 +481,20 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* 인쇄 시에만 보이는 라벨 뷰: 대기 중인 주문 1건 = 라벨 1장(2.4 x 1.3인치) */}
+      {/* 인쇄 시에만 보이는 라벨 뷰: 음료 1잔 = 라벨 1장(2.4 x 1.3인치) */}
       <div className="receipt">
-        {pendingOrders.map((o, idx) => (
-          <div className="label" key={o.id}>
+        {labelSlips.map((slip) => (
+          <div className="label" key={slip.key}>
             <div className="label-top">
-              <span className="label-name">{o.customerName}</span>
-              <span className="label-num">#{idx + 1}</span>
+              <span className="label-name">{slip.order.customerName}</span>
+              <span className="label-num">
+                {slip.cupsInOrder > 1 ? `${slip.cupIndex}/${slip.cupsInOrder}` : ""}
+              </span>
             </div>
             <div className="label-items">
-              {o.items.map((i) => (
-                <div key={`${i.id}-${i.temp || "na"}`}>{itemLabel(i)}</div>
-              ))}
+              <div>{slip.item.temp ? `${slip.item.name}(${slip.item.temp})` : slip.item.name}</div>
             </div>
-            {o.note && <div className="label-note">메모: {o.note}</div>}
+            {slip.order.note && <div className="label-note">메모: {slip.order.note}</div>}
           </div>
         ))}
       </div>
