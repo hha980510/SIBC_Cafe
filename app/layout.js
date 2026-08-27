@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "SIBC CAFE",
-  description: "SIBC 카페 온라인 주문",
+  title: "MAIM CAFE",
+  description: "MAIM CAFE 온라인 주문",
 };
 
 export default function RootLayout({ children }) {

@@ -69,6 +69,17 @@ button {
   font-size: 28px;
 }
 
+.hero-logo {
+  display: block;
+  margin: 0 auto 14px;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+}
+
+.passcode-logo {
+  display: block;
+  margin: 0 auto 14px;
+}
+
 .hero h1 {
   margin: 0 0 6px;
   font-size: 22px;
@@ -329,6 +340,11 @@ button {
   padding: 10px 14px;
   cursor: pointer;
   min-width: 108px;
+}
+
+.extra-chip .chip-icon {
+  display: block;
+  margin-bottom: 2px;
 }
 
 .extra-chip .chip-name-ko {
@@ -835,8 +851,6 @@ button {
       -apple-system, sans-serif;
     page-break-after: always;
     break-after: page;
-    /* 프린터 물리적 인쇄 위치 보정 */
-    transform: translateY(-6mm);
   }
   .label:last-child {
     page-break-after: auto;

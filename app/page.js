@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import { CATEGORIES } from "@/lib/menu";
+import MaimLogo from "@/components/MaimLogo";
+import { MenuIcon, ExtraIcon } from "@/components/MenuIcon";
 
 // 가격은 사용자 주문 화면/인쇄 라벨에는 표시하지 않고 관리자 "전체 내역" 탭에서만 보여줍니다.
 
@@ -169,8 +171,8 @@ export default function OrderPage() {
   return (
     <main className="page">
       <div className="hero">
-        <div className="hero-badge">☕️</div>
-        <h1>SIBC CAFE</h1>
+        <MaimLogo size={92} className="hero-logo" />
+        <h1>MAIM CAFE</h1>
         <p>
           메뉴를 선택하고 이름을 입력하면 주문이 접수돼요.
           <br />
@@ -220,6 +222,7 @@ export default function OrderPage() {
                       disabled ? handleUnavailableClick() : toggleExtra(activeCategory, item)
                     }
                   >
+                    <ExtraIcon itemId={item.id} className="chip-icon" />
                     <span className="chip-name-ko">{item.nameKo}</span>
                     <span className="chip-name-en">{item.nameEn}</span>
                     {disabled && <span className="chip-soon">출시예정</span>}
@@ -246,7 +249,15 @@ export default function OrderPage() {
                         aria-label={`${item.nameKo}는 출시 예정 메뉴입니다`}
                       />
                     )}
-                    <div className="menu-emoji">{activeCategory.emoji || DEFAULT_EMOJI}</div>
+                    <div className="menu-emoji">
+                      <MenuIcon
+                        categoryId={activeCategory.id}
+                        itemId={item.id}
+                        hasTemp={activeCategory.hasTemp}
+                        temp={activeCategory.hasTemp ? temp : null}
+                        size={34}
+                      />
+                    </div>
                     <div className="menu-info">
                       <p className="name">
                         {item.nameKo} <span className="name-en">{item.nameEn}</span>

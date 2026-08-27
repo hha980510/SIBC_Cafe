@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import MaimLogo from "@/components/MaimLogo";
 
 const STORAGE_KEY = "sibc_cafe_admin_passcode";
 const PRINTED_KEY = "sibc_cafe_printed_ids";
@@ -187,7 +188,8 @@ export default function AdminPage() {
     return (
       <main className="admin-page">
         <div className="passcode-gate">
-          <h1>SIBC CAFE 관리자</h1>
+          <MaimLogo size={64} className="passcode-logo" />
+          <h1>MAIM CAFE 관리자</h1>
           <form onSubmit={handleGateSubmit}>
             <div className="field">
               <label htmlFor="passcode">관리자 비밀번호</label>
