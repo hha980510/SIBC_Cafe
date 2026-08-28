@@ -217,11 +217,7 @@ export default function OrderPage() {
       <div className="hero">
         <MaimLogo size={92} className="hero-logo" />
         <h1>MAIM CAFE</h1>
-        <p>
-          메뉴를 선택하고 이름을 입력하면 주문이 접수돼요.
-          <br />
-          주문 내역은 모아서 한 번에 준비됩니다.
-        </p>
+        <p>메뉴를 선택하고 하단에 이름을 입력하면 주문이 접수됩니다.</p>
       </div>
 
       {toast && <div className="toast">{toast}</div>}
