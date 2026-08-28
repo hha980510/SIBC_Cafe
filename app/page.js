@@ -195,19 +195,24 @@ export default function OrderPage() {
 
   if (!categories || categories.length === 0) {
     return (
-      <main className="page">
-        <div className="hero">
-          <MaimLogo size={92} className="hero-logo" />
-          <h1>MAIM CAFE</h1>
-        </div>
-        <div className="banner info" style={{ margin: "20px" }}>
-          {menuError || (categories ? "메뉴가 비어 있습니다." : "메뉴를 불러오는 중...")}
-        </div>
-      </main>
+      <>
+        <div className="page-bg" aria-hidden="true" />
+        <main className="page">
+          <div className="hero">
+            <MaimLogo size={92} className="hero-logo" />
+            <h1>MAIM CAFE</h1>
+          </div>
+          <div className="banner info" style={{ margin: "20px" }}>
+            {menuError || (categories ? "메뉴가 비어 있습니다." : "메뉴를 불러오는 중...")}
+          </div>
+        </main>
+      </>
     );
   }
 
   return (
+    <>
+    <div className="page-bg" aria-hidden="true" />
     <main className="page">
       <div className="hero">
         <MaimLogo size={92} className="hero-logo" />
@@ -407,5 +412,6 @@ export default function OrderPage() {
         </div>
       </form>
     </main>
+    </>
   );
 }

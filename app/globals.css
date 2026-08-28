@@ -40,10 +40,37 @@ button {
 }
 
 .page {
+  position: relative;
+  z-index: 1;
   max-width: 640px;
   margin: 0 auto;
   padding-bottom: 140px;
   min-height: 100vh;
+}
+
+/* ---------- 배경 이미지 (성경+커피, 은은하게 고정) ---------- */
+/* 뷰포트에 고정되는 별도 레이어라서, 배너/주문목록 등 본문 콘텐츠는
+   평소처럼 스크롤되고 배경 이미지만 자리에 그대로 머물러요.
+   (background-attachment: fixed 대신 이 방식을 쓰는 이유는 일부 모바일
+   브라우저에서 fixed 배경이 스크롤 시 튀는 문제가 있기 때문입니다.) */
+.page-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url("/bg-bible-coffee.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: saturate(0.9) blur(1px);
+  pointer-events: none;
+}
+
+.page-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--sibc-cream);
+  opacity: 0.82;
 }
 
 /* ---------- 헤더 ---------- */
