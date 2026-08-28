@@ -26,17 +26,10 @@ export default function MaimLogo({ size = 96, className = "" }) {
       <circle cx="100" cy="100" r="94" fill="none" stroke="url(#maimRing)" strokeWidth="3" />
       <circle cx="100" cy="100" r="84" fill="none" stroke="#e8cf94" strokeOpacity="0.35" strokeWidth="1" />
 
-      {/* 김(스팀) */}
-      <g stroke="#e8cf94" strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.85">
-        <path d="M78 52c-6 -8 6 -12 0 -22" />
-        <path d="M100 48c-6 -8 6 -12 0 -22" />
-        <path d="M122 52c-6 -8 6 -12 0 -22" />
-      </g>
-
       {/* MAIM 워드마크 */}
       <text
         x="100"
-        y="116"
+        y="106"
         textAnchor="middle"
         fontFamily="Georgia, 'Times New Roman', serif"
         fontSize="40"
@@ -48,12 +41,12 @@ export default function MaimLogo({ size = 96, className = "" }) {
       </text>
 
       {/* 구분선 */}
-      <line x1="66" y1="132" x2="134" y2="132" stroke="#c6a664" strokeWidth="1.4" />
+      <line x1="66" y1="122" x2="134" y2="122" stroke="#c6a664" strokeWidth="1.4" />
 
       {/* CAFE */}
       <text
         x="100"
-        y="148"
+        y="138"
         textAnchor="middle"
         fontFamily="'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif"
         fontSize="15"
