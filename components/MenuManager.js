@@ -223,6 +223,7 @@ export default function MenuManager({ passcode }) {
                   <td>
                     <input
                       type="text"
+                      lang="ko"
                       value={item.nameKo}
                       onChange={(e) => updateItemField(cat.id, item.id, "nameKo", e.target.value)}
                     />
@@ -230,6 +231,7 @@ export default function MenuManager({ passcode }) {
                   <td>
                     <input
                       type="text"
+                      lang="en"
                       value={item.nameEn}
                       onChange={(e) => updateItemField(cat.id, item.id, "nameEn", e.target.value)}
                     />
@@ -272,12 +274,14 @@ export default function MenuManager({ passcode }) {
           <div className="menu-add-row">
             <input
               type="text"
+              lang="ko"
               placeholder="한글 이름 (필수)"
               value={drafts[cat.id]?.nameKo || ""}
               onChange={(e) => updateDraft(cat.id, "nameKo", e.target.value)}
             />
             <input
               type="text"
+              lang="en"
               placeholder="영문 이름"
               value={drafts[cat.id]?.nameEn || ""}
               onChange={(e) => updateDraft(cat.id, "nameEn", e.target.value)}

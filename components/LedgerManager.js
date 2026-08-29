@@ -107,7 +107,11 @@ export default function LedgerManager({ passcode }) {
           "Content-Type": "application/json",
           "x-admin-passcode": passcode ?? "",
         },
-        body: JSON.stringify({ userId: depositUserId, amount, note: depositNote.trim() }),
+        body: JSON.stringify({
+          userId: depositUserId,
+          amount,
+          note: depositNote.trim() || "입금",
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -289,7 +293,8 @@ export default function LedgerManager({ passcode }) {
           />
           <input
             type="text"
-            placeholder="메모(선택)"
+            lang="ko"
+            placeholder="메모(선택, 비우면 '입금'으로 기록돼요)"
             value={depositNote}
             maxLength={60}
             onChange={(e) => setDepositNote(e.target.value)}
@@ -350,6 +355,7 @@ export default function LedgerManager({ passcode }) {
                       {isEditing ? (
                         <input
                           type="text"
+                          lang="ko"
                           maxLength={60}
                           value={editNote}
                           onChange={(e) => setEditNote(e.target.value)}

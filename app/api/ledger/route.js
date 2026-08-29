@@ -44,7 +44,7 @@ export async function POST(request) {
     const body = await request.json();
     const userId = String(body?.userId || "").trim();
     const amount = Math.round(Number(body?.amount) || 0);
-    const note = typeof body?.note === "string" ? body.note.trim().slice(0, 60) : "";
+    const note = (typeof body?.note === "string" ? body.note.trim() : "").slice(0, 60) || "입금";
 
     if (!userId) {
       return NextResponse.json({ error: "입금할 사용자를 선택해주세요." }, { status: 400 });

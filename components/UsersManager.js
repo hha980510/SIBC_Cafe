@@ -208,6 +208,7 @@ export default function UsersManager({ passcode }) {
         <div className="menu-add-row">
           <input
             type="text"
+            lang="ko"
             placeholder="이름 입력"
             value={draftName}
             maxLength={30}

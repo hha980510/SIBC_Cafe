@@ -49,8 +49,11 @@ export async function PATCH(request, { params }) {
       body.amount === undefined || body.amount === null
         ? original.amount
         : Math.round(Number(body.amount) || 0);
-    const nextNote =
+    let nextNote =
       typeof body.note === "string" ? body.note.trim().slice(0, 60) : original.note;
+    if (!nextNote && original.type === "deposit") {
+      nextNote = "입금";
+    }
 
     if (!nextAmount || nextAmount <= 0) {
       return NextResponse.json({ error: "금액을 올바르게 입력해주세요." }, { status: 400 });
