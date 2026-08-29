@@ -619,6 +619,12 @@ button {
   border: 1px solid #e3ddcf;
 }
 
+.banner.warning {
+  background: #fdf3e3;
+  color: #8a5a12;
+  border: 1px solid #f0d9a8;
+}
+
 /* ---------- 관리자 페이지 ---------- */
 .admin-page {
   max-width: 860px;

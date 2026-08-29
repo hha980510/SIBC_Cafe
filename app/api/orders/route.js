@@ -77,12 +77,15 @@ export async function POST(request) {
     await redis.rpush(ORDERS_KEY, order);
 
     // 등록된 사용자(이름 드롭다운)와 이름이 일치하면 주문 금액만큼 자동으로 출금 기록을
-    // 남기고 적립금 잔액에서 차감합니다. 회계 기록이 실패해도 주문 자체는 성공 처리합니다.
+    // 남기고 적립금 잔액에서 차감합니다. 잔액이 부족해도 주문은 그대로 접수하고 잔액은
+    // 마이너스(외상)로 처리합니다. 회계 기록이 실패해도 주문 자체는 성공 처리합니다.
+    let insufficientBalance = false;
     try {
       if (total > 0) {
         const users = await getUsers();
         const matchedUser = users.find((u) => u.name === customerName);
         if (matchedUser) {
+          insufficientBalance = (matchedUser.balance || 0) < total;
           await adjustUserBalance(matchedUser.id, -total);
           const tx = {
             id: randomUUID(),
@@ -103,7 +106,7 @@ export async function POST(request) {
       console.error("[POST /api/orders] 회계 기록 실패", ledgerErr);
     }
 
-    return NextResponse.json({ order }, { status: 201 });
+    return NextResponse.json({ order, insufficientBalance }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/orders]", err);
     return NextResponse.json(

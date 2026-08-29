@@ -195,8 +195,10 @@ export default function OrderPage() {
       }
 
       setMessage({
-        type: "success",
-        text: `${customerName}님, 주문이 접수되었어요! (총 ${totalCups}개)`,
+        type: data.insufficientBalance ? "warning" : "success",
+        text: data.insufficientBalance
+          ? `${customerName}님, 주문이 접수되었어요! (총 ${totalCups}개) 잔액이 부족하여 외상으로 처리되었습니다.`
+          : `${customerName}님, 주문이 접수되었어요! (총 ${totalCups}개)`,
       });
       setCart({});
     } catch (err) {
