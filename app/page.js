@@ -21,6 +21,8 @@ export default function OrderPage() {
   const [activeTab, setActiveTab] = useState(null);
   const [cart, setCart] = useState({}); // { [cartKey]: {key, itemId, nameKo, nameEn, price, qty, temp, isExtra} }
   const [tempChoice, setTempChoice] = useState({}); // { [itemId]: "HOT" | "ICE" }
+  const [users, setUsers] = useState([]); // 관리자 "사용자 관리"에서 등록한 이름 목록
+  const [usersLoaded, setUsersLoaded] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null); // { type: "success" | "error", text }
@@ -39,6 +41,17 @@ export default function OrderPage() {
         setCategories([]);
         setMenuError("메뉴를 불러오지 못했어요. 잠시 후 새로고침 해주세요.");
       });
+
+    fetch("/api/users", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        const list = [...(data.users || [])].sort((a, b) =>
+          a.name.localeCompare(b.name, "ko")
+        );
+        setUsers(list);
+      })
+      .catch(() => setUsers([]))
+      .finally(() => setUsersLoaded(true));
   }, []);
 
   const activeCategory = useMemo(
@@ -376,14 +389,24 @@ export default function OrderPage() {
           <div className="form-card">
             <div className="field">
               <label htmlFor="customerName">이름 *</label>
-              <input
+              <select
                 id="customerName"
-                type="text"
-                placeholder="이름을 입력해주세요"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                maxLength={30}
-              />
+                disabled={users.length === 0}
+              >
+                <option value="">이름을 선택해주세요</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.name}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+              {usersLoaded && users.length === 0 && (
+                <p className="field-hint">
+                  등록된 이름이 없어요. 관리자 "사용자 관리"에서 먼저 이름을 추가해주세요.
+                </p>
+              )}
             </div>
           </div>
         </div>

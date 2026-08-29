@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import MaimLogo from "@/components/MaimLogo";
 import MenuManager from "@/components/MenuManager";
+import UsersManager from "@/components/UsersManager";
+import LedgerManager from "@/components/LedgerManager";
 import { CATEGORIES } from "@/lib/menu";
 
 const STORAGE_KEY = "sibc_cafe_admin_passcode";
@@ -72,7 +74,7 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [resetting, setResetting] = useState(false);
   const [deletingIds, setDeletingIds] = useState(() => new Set());
-  const [tab, setTab] = useState("print"); // "print" | "history" | "menu"
+  const [tab, setTab] = useState("print"); // "print" | "history" | "menu" | "users" | "ledger"
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [printedIds, setPrintedIds] = useState(() => new Set());
@@ -352,6 +354,20 @@ export default function AdminPage() {
           >
             메뉴 관리
           </button>
+          <button
+            type="button"
+            className={`sidebar-tab ${tab === "users" ? "active" : ""}`}
+            onClick={() => setTab("users")}
+          >
+            사용자 관리
+          </button>
+          <button
+            type="button"
+            className={`sidebar-tab ${tab === "ledger" ? "active" : ""}`}
+            onClick={() => setTab("ledger")}
+          >
+            회계
+          </button>
         </aside>
 
         <div className="admin-content">
@@ -566,8 +582,12 @@ export default function AdminPage() {
                 <span className="history-total-amount">{formatUSD(filteredTotal)}</span>
               </div>
             </>
-          ) : (
+          ) : tab === "menu" ? (
             <MenuManager passcode={passcode} />
+          ) : tab === "users" ? (
+            <UsersManager passcode={passcode} />
+          ) : (
+            <LedgerManager passcode={passcode} />
           )}
         </div>
       </div>

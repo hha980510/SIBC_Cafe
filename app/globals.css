@@ -463,21 +463,44 @@ button {
 }
 
 .field input,
-.field textarea {
+.field textarea,
+.field select {
   width: 100%;
   border: 1.5px solid #e3ddcf;
   border-radius: var(--radius-md);
   padding: 11px 13px;
   font-size: 14.5px;
+  font-family: inherit;
   background: var(--sibc-cream);
   color: var(--sibc-text);
   resize: none;
 }
 
+.field select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%236b6459' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 34px;
+}
+
+.field select:disabled {
+  color: var(--sibc-muted);
+  cursor: not-allowed;
+}
+
 .field input:focus,
-.field textarea:focus {
+.field textarea:focus,
+.field select:focus {
   outline: none;
   border-color: var(--sibc-green);
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--sibc-muted);
+  margin: 6px 2px 0;
 }
 
 /* ---------- 하단 고정 주문바 ---------- */
@@ -891,7 +914,8 @@ button {
   border-top: 1px dashed #e3ddcf;
 }
 
-.menu-add-row input {
+.menu-add-row input,
+.menu-add-row select {
   flex: 1;
   min-width: 100px;
   border: 1.5px solid #e3ddcf;
@@ -903,9 +927,24 @@ button {
   color: var(--sibc-text);
 }
 
-.menu-add-row input:focus {
+.menu-add-row input:focus,
+.menu-add-row select:focus {
   outline: none;
   border-color: var(--sibc-green);
+}
+
+.menu-add-row select {
+  min-width: 130px;
+}
+
+.amount-positive {
+  color: var(--sibc-green-dark);
+  font-weight: 700;
+}
+
+.amount-negative {
+  color: var(--sibc-danger);
+  font-weight: 700;
 }
 
 .menu-add-row input[type="number"] {
