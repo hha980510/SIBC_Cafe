@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { redis, ORDERS_KEY } from "@/lib/redis";
+import { redis, ORDERS_KEY, LEDGER_KEY } from "@/lib/redis";
 import { isAdminAuthorized } from "@/lib/adminAuth";
+import { getUsers, adjustUserBalance } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,33 @@ export async function POST(request) {
     };
 
     await redis.rpush(ORDERS_KEY, order);
+
+    // 등록된 사용자(이름 드롭다운)와 이름이 일치하면 주문 금액만큼 자동으로 출금 기록을
+    // 남기고 적립금 잔액에서 차감합니다. 회계 기록이 실패해도 주문 자체는 성공 처리합니다.
+    try {
+      if (total > 0) {
+        const users = await getUsers();
+        const matchedUser = users.find((u) => u.name === customerName);
+        if (matchedUser) {
+          await adjustUserBalance(matchedUser.id, -total);
+          const tx = {
+            id: randomUUID(),
+            type: "withdrawal",
+            userId: matchedUser.id,
+            userName: matchedUser.name,
+            amount: total,
+            note: cleanItems
+              .map((i) => (i.temp ? `${i.name}(${i.temp})` : i.name))
+              .join(", "),
+            orderId: order.id,
+            createdAt: order.createdAt,
+          };
+          await redis.rpush(LEDGER_KEY, tx);
+        }
+      }
+    } catch (ledgerErr) {
+      console.error("[POST /api/orders] 회계 기록 실패", ledgerErr);
+    }
 
     return NextResponse.json({ order }, { status: 201 });
   } catch (err) {
