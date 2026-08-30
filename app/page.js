@@ -11,6 +11,10 @@ import { MenuIcon, ExtraIcon } from "@/components/MenuIcon";
 // 카테고리별 대표 이모지가 없을 때 쓰는 기본값
 const DEFAULT_EMOJI = "☕️";
 
+// 라벨(2.4 x 1.3인치, 한 줄로만 표시)에 메모가 잘리지 않고 깔끔하게 들어가도록
+// 입력창 단계에서부터 글자 수를 제한합니다.
+const MEMO_MAX_LEN = 30;
+
 function cartKey(item, categoryHasTemp, temp) {
   return categoryHasTemp ? `${item.id}::${temp}` : item.id;
 }
@@ -24,6 +28,7 @@ export default function OrderPage() {
   const [users, setUsers] = useState([]); // 관리자 "사용자 관리"에서 등록한 이름 목록
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [customerName, setCustomerName] = useState("");
+  const [memo, setMemo] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null); // { type: "success" | "error", text }
   const [toast, setToast] = useState("");
@@ -173,8 +178,10 @@ export default function OrderPage() {
       isExtra: e.isExtra,
     }));
 
-    // 추가요청 칩으로 고른 항목들을 라벨 하단에 찍힐 요청사항 메모로 합칩니다.
-    const note = extraEntries.map((e) => e.nameKo).join(", ");
+    // 추가요청 칩으로 고른 항목 + 직접 입력한 메모를 라벨 하단에 찍힐 메모로 합칩니다.
+    // 라벨이 한 줄로만 표시되므로 너무 길어지지 않게 합친 뒤에도 한 번 더 잘라둡니다.
+    const extrasNote = extraEntries.map((e) => e.nameKo).join(", ");
+    const note = [memo.trim(), extrasNote].filter(Boolean).join(" · ").slice(0, 60);
 
     setSubmitting(true);
     try {
@@ -201,6 +208,7 @@ export default function OrderPage() {
           : `${customerName}님, 주문이 접수되었어요! (총 ${totalCups}개)`,
       });
       setCart({});
+      setMemo("");
     } catch (err) {
       setMessage({ type: "error", text: "네트워크 오류로 주문에 실패했습니다. 다시 시도해주세요." });
     } finally {
@@ -409,6 +417,22 @@ export default function OrderPage() {
                   등록된 이름이 없어요. 관리자 "사용자 관리"에서 먼저 이름을 추가해주세요.
                 </p>
               )}
+            </div>
+
+            <div className="field">
+              <label htmlFor="memo">메모 (선택)</label>
+              <input
+                id="memo"
+                type="text"
+                lang="ko"
+                maxLength={MEMO_MAX_LEN}
+                placeholder="예: 얼음 적게 주세요"
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+              />
+              <p className="field-hint">
+                라벨에 한 줄로 표시돼요 · {memo.length}/{MEMO_MAX_LEN}
+              </p>
             </div>
           </div>
         </div>

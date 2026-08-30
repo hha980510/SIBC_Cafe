@@ -41,7 +41,8 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const customerName = typeof body.customerName === "string" ? body.customerName.trim() : "";
-    const note = typeof body.note === "string" ? body.note.trim() : "";
+    // 라벨은 2.4 x 1.3인치 한 줄짜리 메모 영역이라, 서버에서도 한 번 더 길이를 제한합니다.
+    const note = typeof body.note === "string" ? body.note.trim().slice(0, 60) : "";
     const items = Array.isArray(body.items) ? body.items : [];
 
     if (!customerName) {
