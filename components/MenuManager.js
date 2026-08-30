@@ -38,6 +38,7 @@ export default function MenuManager({ passcode }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [drafts, setDrafts] = useState({}); // { [categoryId]: {nameKo, nameEn, price} }
+  const [dragInfo, setDragInfo] = useState(null); // { categoryId, index }
 
   useEffect(() => {
     loadMenu();
@@ -127,6 +128,43 @@ export default function MenuManager({ passcode }) {
     );
   }
 
+  function reorderItems(categoryId, fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
+    setCategories((prev) =>
+      prev.map((cat) => {
+        if (cat.id !== categoryId) return cat;
+        const items = [...cat.items];
+        const [moved] = items.splice(fromIndex, 1);
+        items.splice(toIndex, 0, moved);
+        return { ...cat, items };
+      })
+    );
+  }
+
+  function moveItem(categoryId, index, delta) {
+    const cat = categories.find((c) => c.id === categoryId);
+    if (!cat) return;
+    const toIndex = index + delta;
+    if (toIndex < 0 || toIndex >= cat.items.length) return;
+    reorderItems(categoryId, index, toIndex);
+  }
+
+  function handleDragStart(categoryId, index) {
+    setDragInfo({ categoryId, index });
+  }
+
+  function handleDragOver(e, categoryId, index) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (!dragInfo || dragInfo.categoryId !== categoryId || dragInfo.index === index) return;
+    reorderItems(categoryId, dragInfo.index, index);
+    setDragInfo({ categoryId, index });
+  }
+
+  function handleDragEnd() {
+    setDragInfo(null);
+  }
+
   function updateDraft(categoryId, field, value) {
     setDrafts((prev) => ({
       ...prev,
@@ -198,7 +236,7 @@ export default function MenuManager({ passcode }) {
         </div>
       )}
       <div className="banner info" style={{ margin: "0 0 16px" }}>
-        가격/이름/활성화 여부를 바꾸고 새 메뉴를 추가한 뒤, 반드시 위의 "전체 저장" 버튼을 눌러야 저장돼요.
+        가격/이름/활성화 여부를 바꾸고, ⠿ 손잡이를 드래그해서 메뉴 순서를 바꾼 뒤, 반드시 위의 "전체 저장" 버튼을 눌러야 저장돼요.
       </div>
 
       {categories.map((cat) => (
@@ -210,16 +248,32 @@ export default function MenuManager({ passcode }) {
           <table className="order-table">
             <thead>
               <tr>
+                <th style={{ width: 36 }}></th>
                 <th>한글명</th>
                 <th>영문명</th>
                 <th style={{ width: 110 }}>가격 ($)</th>
                 <th style={{ width: 80 }}>판매상태</th>
-                <th style={{ width: 60 }}></th>
+                <th style={{ width: 92 }}></th>
               </tr>
             </thead>
             <tbody>
-              {cat.items.map((item) => (
-                <tr key={item.id}>
+              {cat.items.map((item, idx) => (
+                <tr
+                  key={item.id}
+                  draggable
+                  onDragStart={() => handleDragStart(cat.id, idx)}
+                  onDragOver={(e) => handleDragOver(e, cat.id, idx)}
+                  onDrop={(e) => e.preventDefault()}
+                  onDragEnd={handleDragEnd}
+                  className={
+                    dragInfo && dragInfo.categoryId === cat.id && dragInfo.index === idx
+                      ? "menu-row-dragging"
+                      : ""
+                  }
+                >
+                  <td className="menu-drag-handle" title="드래그해서 순서 변경">
+                    ⠿
+                  </td>
                   <td>
                     <input
                       type="text"
@@ -258,13 +312,33 @@ export default function MenuManager({ passcode }) {
                     </label>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn-danger btn-danger-sm"
-                      onClick={() => removeItem(cat.id, item.id)}
-                    >
-                      삭제
-                    </button>
+                    <div className="menu-row-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary btn-move"
+                        title="위로"
+                        disabled={idx === 0}
+                        onClick={() => moveItem(cat.id, idx, -1)}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-move"
+                        title="아래로"
+                        disabled={idx === cat.items.length - 1}
+                        onClick={() => moveItem(cat.id, idx, 1)}
+                      >
+                        ▼
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-danger btn-danger-sm"
+                        onClick={() => removeItem(cat.id, item.id)}
+                      >
+                        삭제
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -896,6 +896,46 @@ button {
   width: 90px;
 }
 
+.menu-drag-handle {
+  cursor: grab;
+  text-align: center;
+  color: #b9ae94;
+  font-size: 16px;
+  user-select: none;
+  touch-action: none;
+}
+
+.menu-drag-handle:active {
+  cursor: grabbing;
+}
+
+.menu-manage-card .order-table tr[draggable="true"] {
+  transition: background-color 0.12s ease;
+}
+
+.menu-manage-card .order-table tr.menu-row-dragging {
+  background: var(--sibc-cream-2);
+  opacity: 0.6;
+}
+
+.menu-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-move {
+  padding: 4px 7px;
+  font-size: 11px;
+  line-height: 1;
+  border-radius: 6px;
+}
+
+.btn-move:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .menu-toggle {
   display: flex;
   align-items: center;
