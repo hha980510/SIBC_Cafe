@@ -176,6 +176,22 @@ function Motif({ type, color, x = 29, y = 26 }) {
           <circle cx={x - 3.6} cy={y - 2.6} r="0.6" fill={glossy} opacity="0.8" />
         </g>
       );
+    case "bubble":
+      return (
+        <g>
+          <g fill={color} fillOpacity="0.85">
+            <circle cx={x - 4} cy={y + 3} r="1.7" />
+            <circle cx={x + 3.2} cy={y - 4} r="1.3" />
+            <circle cx={x + 5} cy={y + 2} r="1" />
+            <circle cx={x - 1} cy={y - 6} r="1" />
+            <circle cx={x + 0.5} cy={y + 5.5} r="1.4" />
+          </g>
+          <g fill={glossy} opacity="0.85">
+            <circle cx={x - 4.5} cy={y + 2.2} r="0.5" />
+            <circle cx={x + 2.5} cy={y - 4.7} r="0.4" />
+          </g>
+        </g>
+      );
     case "chip":
       return (
         <g>

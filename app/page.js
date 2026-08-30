@@ -426,7 +426,7 @@ export default function OrderPage() {
                 type="text"
                 lang="ko"
                 maxLength={MEMO_MAX_LEN}
-                placeholder="예: 얼음 적게 주세요"
+                placeholder="주문자의 이름이 다를 경우 메모란에 기재해주세요"
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
               />
