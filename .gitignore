@@ -19,3 +19,4 @@
 .DS_Store
 *.pem
 npm-debug.log*
+_git_lock_junk/
