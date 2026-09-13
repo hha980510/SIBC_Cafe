@@ -41,6 +41,10 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const customerName = typeof body.customerName === "string" ? body.customerName.trim() : "";
+    // 계정(customerName)은 잔액 차감/회계에 쓰는 실제 등록 계정입니다. 한 계정을 여럿이
+    // 같이 쓰는 경우가 많아, 실제 주문자 이름은 displayName으로 따로 받아 라벨/내역
+    // 표시에만 씁니다(잔액 조회에는 쓰지 않음). 라벨 한 줄에 들어가도록 길이를 제한합니다.
+    const displayName = typeof body.displayName === "string" ? body.displayName.trim().slice(0, 20) : "";
     // 라벨은 2.4 x 1.3인치 한 줄짜리 메모 영역이라, 서버에서도 한 번 더 길이를 제한합니다.
     const note = typeof body.note === "string" ? body.note.trim().slice(0, 60) : "";
     const items = Array.isArray(body.items) ? body.items : [];
@@ -69,6 +73,7 @@ export async function POST(request) {
     const order = {
       id: randomUUID(),
       customerName,
+      displayName,
       note,
       items: cleanItems,
       total,

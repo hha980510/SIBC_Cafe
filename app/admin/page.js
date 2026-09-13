@@ -35,6 +35,42 @@ function formatTime(iso) {
   }
 }
 
+// 계정(customerName)은 잔액 차감용 실제 등록 계정이고, displayName은 한 계정을
+// 여럿이 같이 쓸 때 실제 주문자를 구분하려고 손님이 직접 적은 이름입니다.
+// 화면/라벨에는 displayName이 있으면 그걸 우선 보여줍니다.
+function displayNameOf(order) {
+  return (order?.displayName || "").trim() || order?.customerName || "";
+}
+
+// 같은 날짜(현지 기준) 묶음을 구분하기 위한 키입니다.
+function dateKeyOf(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+// 날짜 구분줄에 보여줄 한글/영문 병기 문구입니다. 예: "9월 13일 (일) · Sep 13 (Sun)"
+function formatDateHeading(iso) {
+  const d = new Date(iso);
+  const ko = d.toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
+  const en = d.toLocaleDateString("en-US", { month: "short", day: "numeric", weekday: "short" });
+  return `${ko} · ${en}`;
+}
+
+// 정렬된 주문 목록을 날짜(현지 기준)별로 묶습니다.
+function groupOrdersByDay(sortedOrders) {
+  const groups = [];
+  let current = null;
+  sortedOrders.forEach((o) => {
+    const key = dateKeyOf(o.createdAt);
+    if (!current || current.key !== key) {
+      current = { key, heading: formatDateHeading(o.createdAt), orders: [] };
+      groups.push(current);
+    }
+    current.orders.push(o);
+  });
+  return groups;
+}
+
 // 추가요청 항목인지 판단합니다. 새 주문은 isExtra 플래그로, 그 플래그가 없던
 // 예전 주문은 메뉴 id가 추가요청 카테고리 id 목록에 있는지로 방어적으로 판단합니다.
 function isExtraItem(i) {
@@ -309,25 +345,30 @@ export default function AdminPage() {
     });
   });
 
-  // 전체 내역 탭: 기간(시작일~종료일) 필터링, printed 여부와 무관하게 전부 표시
-  const filteredOrders = (orders || []).filter((o) => {
-    if (!dateFrom && !dateTo) return true;
-    const t = new Date(o.createdAt).getTime();
-    if (dateFrom) {
-      const fromTime = new Date(`${dateFrom}T00:00:00`).getTime();
-      if (t < fromTime) return false;
-    }
-    if (dateTo) {
-      const toTime = new Date(`${dateTo}T23:59:59`).getTime();
-      if (t > toTime) return false;
-    }
-    return true;
-  });
+  // 전체 내역 탭: 기간(시작일~종료일) 필터링, printed 여부와 무관하게 전부 표시.
+  // 최신 주문이 맨 위로 오도록 정렬한 뒤, 날짜별로 묶어서 구분줄과 함께 보여줍니다.
+  const filteredOrders = (orders || [])
+    .filter((o) => {
+      if (!dateFrom && !dateTo) return true;
+      const t = new Date(o.createdAt).getTime();
+      if (dateFrom) {
+        const fromTime = new Date(`${dateFrom}T00:00:00`).getTime();
+        if (t < fromTime) return false;
+      }
+      if (dateTo) {
+        const toTime = new Date(`${dateTo}T23:59:59`).getTime();
+        if (t > toTime) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const filteredCups = filteredOrders.reduce(
     (sum, o) => sum + o.items.reduce((s, i) => s + i.qty, 0),
     0
   );
   const filteredTotal = filteredOrders.reduce((sum, o) => sum + o.total, 0);
+  const filteredDayGroups = groupOrdersByDay(filteredOrders);
+  const HISTORY_COLS = 8;
 
   return (
     <main className="admin-page">
@@ -443,9 +484,15 @@ export default function AdminPage() {
                     <thead>
                       <tr>
                         <th style={{ width: 40 }}>#</th>
-                        <th>이름</th>
-                        <th>메뉴</th>
-                        <th>주문일시</th>
+                        <th>
+                          이름 <span className="name-en">Name</span>
+                        </th>
+                        <th>
+                          메뉴 <span className="name-en">Menu</span>
+                        </th>
+                        <th>
+                          주문일시 <span className="name-en">Time</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -453,7 +500,7 @@ export default function AdminPage() {
                         <tr key={slip.key}>
                           <td>{idx + 1}</td>
                           <td>
-                            {slip.order.customerName}
+                            {displayNameOf(slip.order)}
                             {slip.cupsInOrder > 1 ? ` (${slip.cupIndex}/${slip.cupsInOrder})` : ""}
                           </td>
                           <td>{slip.item.temp ? `${slip.item.name}(${slip.item.temp})` : slip.item.name}</td>
@@ -468,20 +515,22 @@ export default function AdminPage() {
           ) : tab === "history" ? (
             <>
               <div className="admin-header">
-                <h1>전체 내역</h1>
+                <h1>
+                  전체 내역 <span className="name-en">All History</span>
+                </h1>
                 <div className="date-range">
                   <input
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    aria-label="시작일"
+                    aria-label="시작일 Start date"
                   />
                   <span className="date-range-sep">~</span>
                   <input
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    aria-label="종료일"
+                    aria-label="종료일 End date"
                   />
                   {(dateFrom || dateTo) && (
                     <button
@@ -492,7 +541,7 @@ export default function AdminPage() {
                         setDateTo("");
                       }}
                     >
-                      기간 초기화
+                      기간 초기화 Clear
                     </button>
                   )}
                 </div>
@@ -506,7 +555,7 @@ export default function AdminPage() {
                   onClick={() => handleDeleteOrders(Array.from(selectedHistoryIds))}
                   disabled={selectedHistoryIds.size === 0}
                 >
-                  선택 {selectedHistoryIds.size}건 삭제
+                  선택 {selectedHistoryIds.size}건 삭제 Delete
                 </button>
                 <button
                   type="button"
@@ -526,52 +575,90 @@ export default function AdminPage() {
                   <thead>
                     <tr>
                       <th style={{ width: 32 }}></th>
-                      <th>이름</th>
-                      <th>메뉴</th>
-                      <th>요청사항</th>
-                      <th>금액</th>
-                      <th>일시</th>
-                      <th>상태</th>
+                      <th>
+                        이름 <span className="name-en">Name</span>
+                      </th>
+                      <th>
+                        메뉴 <span className="name-en">Menu</span>
+                      </th>
+                      <th>
+                        요청사항 <span className="name-en">Memo</span>
+                      </th>
+                      <th>
+                        금액 <span className="name-en">Amount</span>
+                      </th>
+                      <th>
+                        일시 <span className="name-en">Date</span>
+                      </th>
+                      <th>
+                        상태 <span className="name-en">Status</span>
+                      </th>
                       <th style={{ width: 60 }}></th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {filteredOrders.map((o) => (
-                      <tr key={o.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedHistoryIds.has(o.id)}
-                            onChange={() => toggleHistorySelect(o.id)}
-                            aria-label={`${o.customerName} 선택`}
-                          />
-                        </td>
-                        <td>{o.customerName}</td>
-                        <td>{summarizeItems(o.items)}</td>
-                        <td>{o.note || "-"}</td>
-                        <td>{formatUSD(o.total)}</td>
-                        <td>{formatTime(o.createdAt)}</td>
-                        <td>
-                          {printedIds.has(o.id) ? (
-                            <span className="status-pill done">출력완료</span>
-                          ) : (
-                            <span className="status-pill pending">대기중</span>
-                          )}
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-danger btn-danger-sm"
-                            onClick={() => handleDeleteOrders([o.id])}
-                            disabled={deletingIds.has(o.id)}
-                            aria-label={`${o.customerName} 주문 삭제`}
-                          >
-                            삭제
-                          </button>
+                  {filteredDayGroups.map((group) => (
+                    <tbody key={group.key}>
+                      <tr className="date-divider">
+                        <td colSpan={HISTORY_COLS}>
+                          <div className="date-divider-inner">
+                            <span className="date-divider-label">{group.heading}</span>
+                            <span className="date-divider-meta">
+                              {group.orders.length}건 · {formatUSD(
+                                group.orders.reduce((sum, o) => sum + o.total, 0)
+                              )}
+                            </span>
+                          </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
+                      {group.orders.map((o) => {
+                        const shownName = displayNameOf(o);
+                        const showAccountTag =
+                          Boolean((o.displayName || "").trim()) && shownName !== o.customerName;
+                        return (
+                          <tr key={o.id}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selectedHistoryIds.has(o.id)}
+                                onChange={() => toggleHistorySelect(o.id)}
+                                aria-label={`${shownName} 선택`}
+                              />
+                            </td>
+                            <td>
+                              {shownName}
+                              {showAccountTag && (
+                                <span className="name-account-tag">계정 Acct: {o.customerName}</span>
+                              )}
+                            </td>
+                            <td>{summarizeItems(o.items)}</td>
+                            <td>
+                              {o.note ? <span className="note-chip">{o.note}</span> : "-"}
+                            </td>
+                            <td>{formatUSD(o.total)}</td>
+                            <td>{formatTime(o.createdAt)}</td>
+                            <td>
+                              {printedIds.has(o.id) ? (
+                                <span className="status-pill done">출력완료 Printed</span>
+                              ) : (
+                                <span className="status-pill pending">대기중 Pending</span>
+                              )}
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn-danger btn-danger-sm"
+                                onClick={() => handleDeleteOrders([o.id])}
+                                disabled={deletingIds.has(o.id)}
+                                aria-label={`${shownName} 주문 삭제`}
+                              >
+                                삭제
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  ))}
                 </table>
               )}
 
@@ -597,7 +684,7 @@ export default function AdminPage() {
         {labelSlips.map((slip) => (
           <div className="label" key={slip.key}>
             <div className="label-top">
-              <span className="label-name">{slip.order.customerName}</span>
+              <span className="label-name">{displayNameOf(slip.order)}</span>
               <span className="label-num">
                 {slip.cupsInOrder > 1 ? `${slip.cupIndex}/${slip.cupsInOrder}` : ""}
               </span>
@@ -605,7 +692,7 @@ export default function AdminPage() {
             <div className="label-items">
               <div>{slip.item.temp ? `${slip.item.name}(${slip.item.temp})` : slip.item.name}</div>
             </div>
-            {slip.order.note && <div className="label-note">메모: {slip.order.note}</div>}
+            {slip.order.note && <div className="label-note">메모 Memo: {slip.order.note}</div>}
           </div>
         ))}
       </div>

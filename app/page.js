@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import MaimLogo from "@/components/MaimLogo";
 import { MenuIcon, ExtraIcon } from "@/components/MenuIcon";
+import { normalizeItemStatus } from "@/lib/menu";
+
+// 판매상태에 따라 화면에 보여줄 배지 문구입니다. "available"은 배지를 표시하지 않습니다.
+const STATUS_BADGE_TEXT = { soldout: "품절", comingsoon: "출시예정" };
 
 // 가격은 사용자 주문 화면/인쇄 라벨에는 표시하지 않고 관리자 "전체 내역" 탭에서만 보여줍니다.
 // 메뉴 자체는 관리자 "메뉴 관리" 화면에서 언제든 바뀔 수 있어서, 고정된 목록을 쓰지 않고
@@ -11,8 +15,9 @@ import { MenuIcon, ExtraIcon } from "@/components/MenuIcon";
 // 카테고리별 대표 이모지가 없을 때 쓰는 기본값
 const DEFAULT_EMOJI = "☕️";
 
-// 라벨(2.4 x 1.3인치, 한 줄로만 표시)에 메모가 잘리지 않고 깔끔하게 들어가도록
+// 라벨(2.4 x 1.3인치, 한 줄로만 표시)에 이름/메모가 잘리지 않고 깔끔하게 들어가도록
 // 입력창 단계에서부터 글자 수를 제한합니다.
+const NAME_OVERRIDE_MAX_LEN = 20;
 const MEMO_MAX_LEN = 30;
 
 function cartKey(item, categoryHasTemp, temp) {
@@ -28,6 +33,9 @@ export default function OrderPage() {
   const [users, setUsers] = useState([]); // 관리자 "사용자 관리"에서 등록한 이름 목록
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [customerName, setCustomerName] = useState("");
+  // 계정(드롭다운)은 공유 계정인 경우가 많아, 라벨/내역에는 실제 주문자 이름을
+  // 별도로 적어서 그 이름이 보이게 할 수 있습니다. (잔액 차감은 계정 기준 그대로)
+  const [nameOverride, setNameOverride] = useState("");
   const [memo, setMemo] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null); // { type: "success" | "error", text }
@@ -84,8 +92,8 @@ export default function OrderPage() {
     toastTimer.current = setTimeout(() => setToast(""), 2000);
   }
 
-  function handleUnavailableClick() {
-    showToast("해당 메뉴는 출시 예정입니다");
+  function handleUnavailableClick(status) {
+    showToast(status === "soldout" ? "품절된 메뉴입니다" : "해당 메뉴는 출시 예정입니다");
   }
 
   function getTemp(itemId) {
@@ -178,10 +186,12 @@ export default function OrderPage() {
       isExtra: e.isExtra,
     }));
 
-    // 추가요청 칩으로 고른 항목 + 직접 입력한 메모를 라벨 하단에 찍힐 메모로 합칩니다.
+    // 추가요청 칩으로 고른 항목 + 직접 입력한 메모(추가 요청사항)를 라벨 하단에 찍힐 메모로 합칩니다.
     // 라벨이 한 줄로만 표시되므로 너무 길어지지 않게 합친 뒤에도 한 번 더 잘라둡니다.
     const extrasNote = extraEntries.map((e) => e.nameKo).join(", ");
     const note = [memo.trim(), extrasNote].filter(Boolean).join(" · ").slice(0, 60);
+    // 이름 변경란은 라벨/내역에 보여줄 실제 주문자 이름입니다. (계정=customerName은 잔액 차감용으로 그대로 유지)
+    const displayName = nameOverride.trim().slice(0, NAME_OVERRIDE_MAX_LEN);
 
     setSubmitting(true);
     try {
@@ -190,6 +200,7 @@ export default function OrderPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerName,
+          displayName,
           note,
           items,
         }),
@@ -201,13 +212,15 @@ export default function OrderPage() {
         return;
       }
 
+      const shownName = displayName || customerName;
       setMessage({
         type: data.insufficientBalance ? "warning" : "success",
         text: data.insufficientBalance
-          ? `${customerName}님, 주문이 접수되었어요! (총 ${totalCups}개) 잔액이 부족하여 외상으로 처리되었습니다.`
-          : `${customerName}님, 주문이 접수되었어요! (총 ${totalCups}개)`,
+          ? `${shownName}님, 주문이 접수되었어요! (총 ${totalCups}개) 잔액이 부족하여 외상으로 처리되었습니다.`
+          : `${shownName}님, 주문이 접수되었어요! (총 ${totalCups}개)`,
       });
       setCart({});
+      setNameOverride("");
       setMemo("");
     } catch (err) {
       setMessage({ type: "error", text: "네트워크 오류로 주문에 실패했습니다. 다시 시도해주세요." });
@@ -275,7 +288,8 @@ export default function OrderPage() {
               <div className="extra-chip-list">
               {activeCategory.items.map((item) => {
                 const selected = isExtraSelected(item);
-                const disabled = item.available === false;
+                const status = normalizeItemStatus(item);
+                const disabled = status !== "available";
                 return (
                   <button
                     type="button"
@@ -284,13 +298,17 @@ export default function OrderPage() {
                       disabled ? "disabled" : ""
                     }`}
                     onClick={() =>
-                      disabled ? handleUnavailableClick() : toggleExtra(activeCategory, item)
+                      disabled ? handleUnavailableClick(status) : toggleExtra(activeCategory, item)
                     }
                   >
                     <ExtraIcon itemId={item.id} className="chip-icon" />
                     <span className="chip-name-ko">{item.nameKo}</span>
                     <span className="chip-name-en">{item.nameEn}</span>
-                    {disabled && <span className="chip-soon">출시예정</span>}
+                    {disabled && (
+                      <span className={`chip-soon chip-status-${status}`}>
+                        {STATUS_BADGE_TEXT[status]}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -299,7 +317,8 @@ export default function OrderPage() {
           ) : (
             <div className="menu-list">
               {activeCategory.items.map((item) => {
-                const disabled = item.available === false;
+                const status = normalizeItemStatus(item);
+                const disabled = status !== "available";
                 const qty = disabled ? 0 : getQty(activeCategory, item);
                 const temp = getTemp(item.id);
                 return (
@@ -311,8 +330,10 @@ export default function OrderPage() {
                       <button
                         type="button"
                         className="disabled-overlay"
-                        onClick={handleUnavailableClick}
-                        aria-label={`${item.nameKo}는 출시 예정 메뉴입니다`}
+                        onClick={() => handleUnavailableClick(status)}
+                        aria-label={`${item.nameKo}는 ${
+                          status === "soldout" ? "품절된" : "출시 예정"
+                        } 메뉴입니다`}
                       />
                     )}
                     <div className="menu-emoji">
@@ -327,7 +348,11 @@ export default function OrderPage() {
                     <div className="menu-info">
                       <p className="name">
                         {item.nameKo} <span className="name-en">{item.nameEn}</span>
-                        {disabled && <span className="badge-soon">출시예정</span>}
+                        {disabled && (
+                          <span className={`badge-soon badge-status-${status}`}>
+                            {STATUS_BADGE_TEXT[status]}
+                          </span>
+                        )}
                       </p>
                       {activeCategory.hasTemp && (
                         <div className="temp-toggle">
@@ -395,10 +420,14 @@ export default function OrderPage() {
         )}
 
         <div className="section">
-          <div className="section-title">주문자 정보</div>
+          <div className="section-title">
+            주문자 정보 <span className="name-en">Orderer Info</span>
+          </div>
           <div className="form-card">
             <div className="field">
-              <label htmlFor="customerName">이름 *</label>
+              <label htmlFor="customerName">
+                이름 * <span className="name-en">Account</span>
+              </label>
               <select
                 id="customerName"
                 value={customerName}
@@ -415,23 +444,48 @@ export default function OrderPage() {
               {usersLoaded && users.length === 0 && (
                 <p className="field-hint">
                   등록된 이름이 없어요. 관리자 "사용자 관리"에서 먼저 이름을 추가해주세요.
+                  <br />
+                  No names registered yet — an admin needs to add one first.
                 </p>
               )}
             </div>
 
             <div className="field">
-              <label htmlFor="memo">메모 (선택)</label>
+              <label htmlFor="nameOverride">
+                이름 변경 (선택) <span className="name-en">Change Name (Optional)</span>
+              </label>
+              <input
+                id="nameOverride"
+                type="text"
+                lang="ko"
+                maxLength={NAME_OVERRIDE_MAX_LEN}
+                placeholder="계정과 실제 주문자가 다를 때 이름을 적어주세요"
+                value={nameOverride}
+                onChange={(e) => setNameOverride(e.target.value)}
+              />
+              <p className="field-hint">
+                라벨/내역에는 위 이름 대신 여기 적은 이름이 표시돼요 (한 계정을 여럿이 쓸 때 사용)
+                <br />
+                Shown on the label/history instead of the account name above · {nameOverride.length}/
+                {NAME_OVERRIDE_MAX_LEN}
+              </p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="memo">
+                메모 (추가 요청사항) <span className="name-en">Memo (Additional Requests)</span>
+              </label>
               <input
                 id="memo"
                 type="text"
                 lang="ko"
                 maxLength={MEMO_MAX_LEN}
-                placeholder="주문자의 이름이 다를 경우 메모란에 기재해주세요"
+                placeholder="예: 얼음 적게 주세요 / e.g. Less ice please"
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
               />
               <p className="field-hint">
-                라벨에 한 줄로 표시돼요 · {memo.length}/{MEMO_MAX_LEN}
+                라벨에 한 줄로 표시돼요 · Shown on the label as one line · {memo.length}/{MEMO_MAX_LEN}
               </p>
             </div>
           </div>

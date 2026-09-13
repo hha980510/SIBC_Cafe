@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { normalizeItemStatus } from "@/lib/menu";
+
+const STATUS_OPTIONS = [
+  { value: "available", label: "판매중" },
+  { value: "soldout", label: "품절" },
+  { value: "comingsoon", label: "출시예정" },
+];
 
 // price는 센트(USD) 단위 정수로 저장됩니다. 입력창에는 보기 편하게 달러($) 단위로 보여줍니다.
 function centsToDollarsInput(cents) {
@@ -102,7 +109,7 @@ export default function MenuManager({ passcode }) {
     );
   }
 
-  function toggleAvailable(categoryId, itemId) {
+  function updateItemStatus(categoryId, itemId, status) {
     setCategories((prev) =>
       prev.map((cat) =>
         cat.id !== categoryId
@@ -110,7 +117,7 @@ export default function MenuManager({ passcode }) {
           : {
               ...cat,
               items: cat.items.map((item) =>
-                item.id !== itemId ? item : { ...item, available: item.available === false }
+                item.id !== itemId ? item : { ...item, status }
               ),
             }
       )
@@ -189,7 +196,7 @@ export default function MenuManager({ passcode }) {
       return prev.map((c) =>
         c.id !== categoryId
           ? c
-          : { ...c, items: [...c.items, { id, nameKo, nameEn, price, available: true }] }
+          : { ...c, items: [...c.items, { id, nameKo, nameEn, price, status: "available" }] }
       );
     });
     setDrafts((prev) => ({ ...prev, [categoryId]: emptyDraft }));
@@ -252,7 +259,7 @@ export default function MenuManager({ passcode }) {
                 <th>한글명</th>
                 <th>영문명</th>
                 <th style={{ width: 110 }}>가격 ($)</th>
-                <th style={{ width: 80 }}>판매상태</th>
+                <th style={{ width: 104 }}>판매상태</th>
                 <th style={{ width: 92 }}></th>
               </tr>
             </thead>
@@ -302,14 +309,17 @@ export default function MenuManager({ passcode }) {
                     />
                   </td>
                   <td>
-                    <label className="menu-toggle">
-                      <input
-                        type="checkbox"
-                        checked={item.available !== false}
-                        onChange={() => toggleAvailable(cat.id, item.id)}
-                      />
-                      {item.available !== false ? "판매중" : "품절"}
-                    </label>
+                    <select
+                      className={`status-select status-${normalizeItemStatus(item)}`}
+                      value={normalizeItemStatus(item)}
+                      onChange={(e) => updateItemStatus(cat.id, item.id, e.target.value)}
+                    >
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     <div className="menu-row-actions">

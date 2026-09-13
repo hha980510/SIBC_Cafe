@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { redis, MENU_KEY } from "@/lib/redis";
 import { isAdminAuthorized } from "@/lib/adminAuth";
-import { CATEGORIES as DEFAULT_CATEGORIES } from "@/lib/menu";
+import { CATEGORIES as DEFAULT_CATEGORIES, ITEM_STATUSES, normalizeItemStatus } from "@/lib/menu";
 
 export const dynamic = "force-dynamic";
 
@@ -11,21 +11,30 @@ function parseCategories(raw) {
   return Array.isArray(parsed) ? parsed : null;
 }
 
+// 예전에 available 불리언으로만 저장된 항목도 항상 status가 셋 중 하나로
+// 채워진 형태로 내려줍니다. (판매중/품절/출시예정)
+function withNormalizedStatus(categories) {
+  return categories.map((cat) => ({
+    ...cat,
+    items: (cat.items || []).map((item) => ({ ...item, status: normalizeItemStatus(item) })),
+  }));
+}
+
 // 손님 주문 화면에서도 최신 메뉴를 봐야 하므로 조회는 누구나 가능합니다.
 export async function GET() {
   try {
     const stored = await redis.get(MENU_KEY);
     const categories = parseCategories(stored);
     if (categories) {
-      return NextResponse.json({ categories });
+      return NextResponse.json({ categories: withNormalizedStatus(categories) });
     }
     // 아직 저장된 메뉴가 없으면(최초 배포 등) 기본 메뉴로 초기화합니다.
     await redis.set(MENU_KEY, DEFAULT_CATEGORIES);
-    return NextResponse.json({ categories: DEFAULT_CATEGORIES });
+    return NextResponse.json({ categories: withNormalizedStatus(DEFAULT_CATEGORIES) });
   } catch (err) {
     console.error("[GET /api/menu]", err);
     // Redis 연결 문제가 있어도 기본 메뉴는 보여줄 수 있게 폴백합니다.
-    return NextResponse.json({ categories: DEFAULT_CATEGORIES });
+    return NextResponse.json({ categories: withNormalizedStatus(DEFAULT_CATEGORIES) });
   }
 }
 
@@ -58,7 +67,7 @@ export async function PUT(request) {
                 nameKo: String(item.nameKo || "").trim(),
                 nameEn: String(item.nameEn || "").trim(),
                 price: Math.max(0, Math.round(Number(item.price) || 0)),
-                available: item.available !== false,
+                status: ITEM_STATUSES.includes(item.status) ? item.status : normalizeItemStatus(item),
               }))
               .filter((item) => item.id && item.nameKo)
           : [],
