@@ -731,6 +731,11 @@ button {
   color: var(--sibc-green-dark);
 }
 
+.status-pill.partial {
+  background: #fdeee0;
+  color: #b0530f;
+}
+
 .history-total {
   display: flex;
   align-items: center;
@@ -871,6 +876,20 @@ button {
   font-size: 11.5px;
   color: var(--sibc-muted);
   white-space: nowrap;
+}
+
+/* ---------- 라벨 출력: 날짜 구분줄 옆 "이 날짜 전체 선택" 체크박스 ---------- */
+.date-divider-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.date-divider-select input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
 }
 
 /* ---------- 전체 내역: 요청사항(메모)을 더 눈에 띄게 ---------- */
