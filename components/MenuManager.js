@@ -5,6 +5,7 @@ import { normalizeItemStatus } from "@/lib/menu";
 
 const STATUS_OPTIONS = [
   { value: "available", label: "판매중" },
+  { value: "new", label: "신규" },
   { value: "soldout", label: "품절" },
   { value: "comingsoon", label: "출시예정" },
 ];

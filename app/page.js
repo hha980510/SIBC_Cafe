@@ -289,14 +289,16 @@ export default function OrderPage() {
               {activeCategory.items.map((item) => {
                 const selected = isExtraSelected(item);
                 const status = normalizeItemStatus(item);
-                const disabled = status !== "available";
+                // "new"(신규)는 품절/출시예정과 달리 선택 가능한 상태라 비활성화 대상이 아닙니다.
+                const disabled = status === "soldout" || status === "comingsoon";
+                const isNew = status === "new";
                 return (
                   <button
                     type="button"
                     key={item.id}
                     className={`extra-chip ${selected ? "selected" : ""} ${
                       disabled ? "disabled" : ""
-                    }`}
+                    } ${isNew ? "new-item" : ""}`}
                     onClick={() =>
                       disabled ? handleUnavailableClick(status) : toggleExtra(activeCategory, item)
                     }
@@ -318,12 +320,15 @@ export default function OrderPage() {
             <div className="menu-list">
               {activeCategory.items.map((item) => {
                 const status = normalizeItemStatus(item);
-                const disabled = status !== "available";
+                // "new"(신규)는 품절/출시예정과 달리 주문 가능한 상태라 비활성화 대상이 아니고,
+                // 대신 분홍 테두리 + "NEW!" 말풍선으로 강조만 됩니다.
+                const disabled = status === "soldout" || status === "comingsoon";
+                const isNew = status === "new";
                 const qty = disabled ? 0 : getQty(activeCategory, item);
                 const temp = getTemp(item.id);
                 return (
                   <div
-                    className={`menu-card ${disabled ? "disabled" : ""}`}
+                    className={`menu-card ${disabled ? "disabled" : ""} ${isNew ? "new-item" : ""}`}
                     key={item.id}
                   >
                     {disabled && (
